@@ -7,14 +7,7 @@ import {
 } from "react";
 import axios from "axios";
 
-// Use runtime config if available (production) or fallback to import.meta.env (development)
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
-
-// In production, prepend /api to the path, in development use the base URL as is
-const isProduction =
-  process.env.NODE_ENV === "production" ||
-  (!process.env.NODE_ENV && window.location.hostname !== "localhost");
-const API_URL = isProduction ? "/api" : BASE_URL;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 // Configure axios to send cookies with requests
 axios.defaults.withCredentials = true;
