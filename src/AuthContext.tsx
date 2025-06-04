@@ -67,13 +67,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async (): Promise<void> => {
     try {
-      await axios.post(`${API_URL}/auth/logout`);
-    } catch (error) {
-      console.error("Logout error:", error);
-    } finally {
       localStorage.removeItem("authToken");
       delete axios.defaults.headers.common["Authorization"];
       setIsAuthenticated(false);
+    } catch (error) {
+      console.error("Logout error:", error);
     }
   };
 
