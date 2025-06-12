@@ -82,7 +82,13 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
       currentRow?.attributes[editCellInfo.columnName] || "NA";
 
     // Only update if the value has actually changed
-    if (editCellInfo.value && editCellInfo.value !== currentValue) {
+    if (editCellInfo.value !== currentValue) {
+      if (editCellInfo.value === "") {
+        if (!window.confirm("您確定要將此單元格清空嗎？")) {
+          setEditCellInfo(null);
+          return;
+        }
+      }
       try {
         await api.updateCell(
           editCellInfo.rowName,
@@ -112,7 +118,15 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
     );
     const currentValue = currentRow?.annotation || "";
 
-    if (editAnnotationInfo.value && editAnnotationInfo.value !== currentValue) {
+    if (editAnnotationInfo.value !== currentValue) {
+      if (editAnnotationInfo.value === "") {
+        const confirm = window.confirm("您確定要將此單元格清空嗎？");
+        if (!confirm) {
+          setEditAnnotationInfo(null);
+          return;
+        }
+      }
+
       try {
         await api.updateAnnotation(
           editAnnotationInfo.rowName,
@@ -142,7 +156,15 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
     );
     const currentValue = currentRow?.name || "NA";
 
-    if (editRowNameInfo.value && editRowNameInfo.value !== currentValue) {
+    if (editRowNameInfo.value !== currentValue) {
+      if (editRowNameInfo.value === "") {
+        const confirm = window.confirm("您確定要將此單元格清空嗎？");
+        if (!confirm) {
+          setEditRowNameInfo(null);
+          return;
+        }
+      }
+
       try {
         await api.updateRowName(editRowNameInfo.rowName, editRowNameInfo.value);
         setEditRowNameInfo(null);
@@ -437,7 +459,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
                   <div className="flex absolute inset-0 p-1">
                     <input
                       type="text"
-                      value={editRowNameInfo.value}
+                      value={editRowNameInfo?.value ?? ""}
                       onChange={(e) =>
                         setEditRowNameInfo({
                           ...editRowNameInfo,
@@ -472,7 +494,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
                 {editAnnotationInfo &&
                 editAnnotationInfo.rowName === row.name ? (
                   <textarea
-                    value={editAnnotationInfo.value}
+                    value={editAnnotationInfo?.value ?? ""}
                     onChange={(e) =>
                       setEditAnnotationInfo({
                         ...editAnnotationInfo,
@@ -510,7 +532,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
                     <div className="flex">
                       <input
                         type="text"
-                        value={editCellInfo.value}
+                        value={editCellInfo?.value ?? ""}
                         onChange={(e) =>
                           setEditCellInfo({
                             ...editCellInfo,
