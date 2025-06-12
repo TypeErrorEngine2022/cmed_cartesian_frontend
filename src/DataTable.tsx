@@ -404,13 +404,16 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
         </button>
       </div>
 
-      <table className="data-table">
+      <table className="data-table w-full border-collapse">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Annotation</th>
+            <th className="w-[150px] min-w-[150px]">Name</th>
+            <th className="w-[200px] min-w-[200px]">Annotation</th>
             {data.columns.map((column) => (
-              <th key={column} className="relative group">
+              <th
+                key={column}
+                className="relative group w-[120px] min-w-[120px]"
+              >
                 {column}
                 <button
                   onClick={() => handleDeleteColumnClick(column)}
@@ -428,10 +431,10 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
             <tr key={row.name}>
               <td
                 onClick={() => handleRowNameClick(row.name, row.name)}
-                className="relative group cursor-pointer"
+                className="relative group cursor-pointer p-2 h-[42px]"
               >
                 {editRowNameInfo && editRowNameInfo.rowName === row.name ? (
-                  <div className="flex">
+                  <div className="flex absolute inset-0 p-1">
                     <input
                       type="text"
                       value={editRowNameInfo.value}
@@ -442,7 +445,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
                         })
                       }
                       autoFocus
-                      className="p-1 border rounded flex-1"
+                      className="p-1 border rounded flex-1 w-full"
                       onBlur={handleRowNameUpdate}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
@@ -452,44 +455,41 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
                     />
                   </div>
                 ) : (
-                  row.name || "-"
+                  <div className="truncate">{row.name || "-"}</div>
                 )}
                 <button
                   onClick={() => handleDeleteRowClick(row.name)}
-                  className="absolute cursor-pointer  top-0 right-0 text-xs text-red-500 hover:text-red-700 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Delete column"
+                  className="absolute top-0 right-0 text-xs text-red-500 hover:text-red-700 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Delete row"
                 >
                   ×
                 </button>
               </td>
               <td
                 onClick={() => handleAnnotationClick(row.name, row.annotation)}
-                className="cursor-pointer"
+                className="cursor-pointer p-2 h-[42px]"
               >
                 {editAnnotationInfo &&
                 editAnnotationInfo.rowName === row.name ? (
-                  <div className="flex">
-                    <input
-                      type="text"
-                      value={editAnnotationInfo.value}
-                      onChange={(e) =>
-                        setEditAnnotationInfo({
-                          ...editAnnotationInfo,
-                          value: e.target.value,
-                        })
+                  <textarea
+                    value={editAnnotationInfo.value}
+                    onChange={(e) =>
+                      setEditAnnotationInfo({
+                        ...editAnnotationInfo,
+                        value: e.target.value,
+                      })
+                    }
+                    autoFocus
+                    className="p-1 border rounded w-full"
+                    onBlur={handleAnnotationUpdate}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        handleAnnotationUpdate();
                       }
-                      autoFocus
-                      className="p-1 border rounded flex-1"
-                      onBlur={handleAnnotationUpdate}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleAnnotationUpdate();
-                        }
-                      }}
-                    />
-                  </div>
+                    }}
+                  />
                 ) : (
-                  row.annotation || ""
+                  <div className="text-wrap">{row.annotation || ""}</div>
                 )}
               </td>
               {data.columns.map((column) => (
@@ -502,7 +502,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
                       row.attributes[column] || "NA"
                     )
                   }
-                  className="cursor-pointer"
+                  className="cursor-pointer p-2 h-[42px] relative"
                 >
                   {editCellInfo &&
                   editCellInfo.rowName === row.name &&
@@ -518,7 +518,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
                           })
                         }
                         autoFocus
-                        className="p-1 border rounded flex-1"
+                        className="p-1 border rounded w-full"
                         onBlur={handleCellUpdate}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
@@ -528,7 +528,9 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
                       />
                     </div>
                   ) : (
-                    row.attributes[column] || "NA"
+                    <div className="truncate">
+                      {row.attributes[column] || "NA"}
+                    </div>
                   )}
                 </td>
               ))}

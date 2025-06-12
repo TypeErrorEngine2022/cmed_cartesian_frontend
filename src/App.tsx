@@ -2,18 +2,19 @@ import { useState, useEffect } from "react";
 import { DataTable } from "./DataTable";
 import { CartesianPlot } from "./CartesianPlot";
 import { AxisSelector } from "./AxisSelector";
-import { api } from "./api";
-import { TableData, CartesianSettings } from "./types";
+import { CartesianSettings } from "./types";
 import { useAuth } from "./AuthContext";
+import useTableData from "./hooks/useTableData";
 
 function App() {
   const { logout } = useAuth();
-  const [tableData, setTableData] = useState<TableData>({
-    columns: [],
-    rows: [],
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    tableData,
+    isTableDataLoading,
+    isTableDataRefreshing,
+    refreshTableData,
+    tableDataError,
+  } = useTableData();
   const [plotSettings, setPlotSettings] = useState<CartesianSettings>({
     xPositive: "",
     xNegative: "",
@@ -22,26 +23,6 @@ function App() {
   });
   // Add state for the full-screen drawer
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-  // Load table data from the backend
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const data = await api.getTableData();
-      setTableData(data);
-      setError(null);
-    } catch (err) {
-      console.error("Error fetching data:", err);
-      setError("Failed to load data from the server. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Load data on component mount
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   // Handle plot settings change
   const handlePlotSettingsChange = (settings: CartesianSettings) => {
@@ -114,20 +95,20 @@ function App() {
         </div>
       </header>
 
-      {error && (
+      {tableDataError && (
         <div className="mb-4 p-4 bg-red-50 border border-red-500 rounded text-red-700">
-          {error}
+          {tableDataError}
         </div>
       )}
 
-      {loading ? (
+      {isTableDataLoading || isTableDataRefreshing ? (
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div>
-            <DataTable data={tableData} onDataChange={fetchData} />
+            <DataTable data={tableData} onDataChange={refreshTableData} />
           </div>
 
           <div>
