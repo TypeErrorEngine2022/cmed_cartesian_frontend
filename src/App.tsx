@@ -80,12 +80,7 @@ function App() {
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold">CMED Cartesian Plot</h1>
         <div className="flex items-center gap-4">
-          <span>
-            Welcome,{" "}
-            {window.RUNTIME_CONFIG?.nickname ||
-              import.meta.env.VITE_NICKNAME ||
-              "admin"}
-          </span>
+          <span>Welcome, {import.meta.env.VITE_NICKNAME || "admin"}</span>
           <button
             onClick={logout}
             className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
