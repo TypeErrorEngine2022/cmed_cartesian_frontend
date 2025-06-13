@@ -1,6 +1,7 @@
 import { api } from "../api";
 import { TableData } from "../types";
 import useSWR from "swr";
+import { useSwrDefaultConfig } from "./useSWRDefaultConfig";
 
 export default function useTableData() {
   const {
@@ -9,9 +10,13 @@ export default function useTableData() {
     isValidating: isTableDataRefreshing,
     mutate: refreshTableData,
     error: tableDataError,
-  } = useSWR<TableData>("table-data", async () => {
-    return await api.getTableData();
-  });
+  } = useSWR<TableData>(
+    "table-data",
+    async () => {
+      return await api.getTableData();
+    },
+    useSwrDefaultConfig
+  );
 
   return {
     tableData: tableData ?? {
