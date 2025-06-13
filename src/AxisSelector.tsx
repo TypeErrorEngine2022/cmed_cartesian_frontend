@@ -63,7 +63,7 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
 
   return (
     <div className="m-6">
-      <div className="relative w-40 h-40 flex items-center justify-center">
+      <div className="relative w-[50%] lg:w-[20%] aspect-square flex items-center justify-center">
         {/* Vertical line */}
         <div className="absolute w-0.5 h-full bg-gray-300"></div>
 
@@ -71,7 +71,7 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
         <div className="absolute h-0.5 w-full bg-gray-300"></div>
 
         {/* Y+ (Up) Axis */}
-        <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+        <div className="absolute top-0">
           <select
             className="p-4 pr-8 border rounded bg-white shadow-md"
             value={settings.yPositive}
@@ -86,7 +86,7 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
         </div>
 
         {/* X+ (Right) Axis */}
-        <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2">
+        <div className="absolute right-0">
           <select
             className="p-4 pr-8 border rounded bg-white shadow-md"
             value={settings.xPositive}
@@ -101,7 +101,7 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
         </div>
 
         {/* Y- (Down) Axis */}
-        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2">
+        <div className="absolute bottom-0">
           <select
             className="p-4 pr-8 border rounded bg-white shadow-md"
             value={settings.yNegative}
@@ -116,7 +116,7 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
         </div>
 
         {/* X- (Left) Axis */}
-        <div className="absolute left-0 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
+        <div className="absolute left-0">
           <select
             className="p-4 pr-8 border rounded bg-white shadow-md"
             value={settings.xNegative}
