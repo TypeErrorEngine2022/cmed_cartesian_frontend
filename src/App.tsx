@@ -4,7 +4,7 @@ import { useAuth } from "./AuthContext";
 import useTableData from "./hooks/useTableData";
 import { DataTable } from "./components/DataTable";
 import { CartesianPlot } from "./components/CartesianPlot";
-import PlotTabs from "./components/PlotTab";
+import PlotTabs from "./components/PlotTabs";
 
 function App() {
   const { logout } = useAuth();
