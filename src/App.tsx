@@ -36,6 +36,7 @@ function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isDrawerOpen) {
+        setFocusTabRecord(undefined);
         setIsDrawerOpen(false);
         document.body.style.overflow = "auto";
       }
