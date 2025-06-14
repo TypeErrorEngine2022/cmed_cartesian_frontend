@@ -1,17 +1,33 @@
-import { AxisConfigRecord, CartesianPlaneConfig, TableData } from "@/types";
+import {
+  AxisConfigRecord,
+  AxisConfigUpdateRequest,
+  CartesianPlaneConfig,
+  TableData,
+} from "@/types";
 import type { TabsProps } from "antd";
-import { Skeleton, Tabs } from "antd";
+import { Button, Drawer, Form, Input, Modal, Skeleton, Tabs } from "antd";
 import { AxisSelector } from "./AxisSelector";
 import { api } from "../api";
 import { CartesianPlot } from "./CartesianPlot";
 import useSWR from "swr";
 import { useSwrDefaultConfig } from "../hooks/useSWRDefaultConfig";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
 interface PlotTabProps {
   tableData: TableData;
   toggleDrawer: (setting: AxisConfigRecord) => void;
 }
+
+function getAxisKey(axisConfigRecord: AxisConfigRecord): string {
+  return `axis-${axisConfigRecord.id}`;
+}
+
+function getAxisIdFromKey(key: string): number | undefined {
+  const match = key.match(/axis-(\d+)/);
+  return match ? parseInt(match[1], 10) : undefined;
+}
+
+const NULL_ACTIVE_KEY = "0";
 
 export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
   const {
@@ -26,6 +42,11 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
     },
     useSwrDefaultConfig
   );
+  const [activeKey, setActiveKey] = useState<string>();
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const [addTabForm] = Form.useForm();
+
   const dimensions = tableData.dimensions?.map((d) => d.name);
 
   // Use debounce to avoid too many API calls
@@ -72,7 +93,7 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
           setPendingUpdates(new Map());
           mutate(); // Only mutate once after all updates are done
         }
-      }, 1000); // 1 second debounce
+      }, 2000); // 1 second debounce
     },
     [axisSettings, mutate, pendingUpdates]
   );
@@ -86,7 +107,7 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
   };
 
   const items: TabsProps["items"] = axisSettings?.map((axisConfigRecord) => ({
-    key: `axis-${axisConfigRecord.id}`,
+    key: getAxisKey(axisConfigRecord),
     label: axisConfigRecord.name,
     children: (
       <div>
@@ -131,13 +152,184 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
     ),
   }));
 
+  const onEdit = async (
+    _targetKey: React.MouseEvent | React.KeyboardEvent | string,
+    action: "add" | "remove"
+  ) => {
+    if (action === "add") {
+      setIsDrawerOpen(true);
+    } else {
+      setIsDialogOpen(true);
+    }
+  };
+
+  useEffect(() => {
+    if (
+      (!activeKey || activeKey === NULL_ACTIVE_KEY) &&
+      axisSettings &&
+      axisSettings.length > 0
+    ) {
+      console.log("Setting active key to first axis setting");
+      setActiveKey(getAxisKey(axisSettings[0]));
+    } else {
+      setActiveKey(NULL_ACTIVE_KEY);
+    }
+  }, [axisSettings]);
+
+  // Handle form submission for adding a new axis setting
+  const handleAddAxisSetting = async (values: AxisConfigUpdateRequest) => {
+    await api.addAxisSetting(values);
+    addTabForm.resetFields();
+    mutate();
+    setIsDrawerOpen(false);
+  };
+
   return (
     <Skeleton loading={isLoading || isValidating}>
       <Tabs
         className="m-6"
-        defaultActiveKey={axisSettings?.[0]?.id.toString() || "0"}
+        activeKey={activeKey}
+        onChange={setActiveKey}
         items={items}
+        onEdit={onEdit}
+        type="editable-card"
       />
+
+      {/* confirm delete axis setting */}
+      <Modal
+        open={isDialogOpen}
+        onCancel={() => setIsDialogOpen(false)}
+        closable
+        okText="Delete"
+        cancelText="Cancel"
+        okType="danger"
+        onOk={async () => {
+          const axisId = getAxisIdFromKey(activeKey ?? "");
+          if (axisId) {
+            await api.deleteAxisSetting(axisId);
+            mutate();
+            setActiveKey(NULL_ACTIVE_KEY);
+          }
+          setIsDialogOpen(false);
+        }}
+      >
+        <p>Are you sure you want to delete this axis setting?</p>
+      </Modal>
+
+      {isDrawerOpen && (
+        <Drawer
+          open={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
+          title="Add New Axis Setting"
+          width={520}
+        >
+          <Form
+            form={addTabForm}
+            name="addAxisSetting"
+            layout="vertical"
+            onFinish={handleAddAxisSetting}
+            autoComplete="off"
+            initialValues={{
+              name: "",
+              xNegative: dimensions?.[1] || "",
+              xPositive: dimensions?.[0] || "",
+              yNegative: dimensions?.[3] || "",
+              yPositive: dimensions?.[2] || "",
+              xPositiveCriteriaId: tableData.dimensions?.[0]?.id,
+              xNegativeCriteriaId: tableData.dimensions?.[1]?.id,
+              yPositiveCriteriaId: tableData.dimensions?.[2]?.id,
+              yNegativeCriteriaId: tableData.dimensions?.[3]?.id,
+            }}
+          >
+            <Form.Item<AxisConfigUpdateRequest>
+              label="Tab Name"
+              name="name"
+              rules={[{ required: true, message: "Please input the tab name" }]}
+            >
+              <Input placeholder="Enter tab name" />
+            </Form.Item>
+
+            <div className="mb-6">
+              <h4 className="text-base mb-3">Configure Axis</h4>
+              <div className="w-full h-full flex justify-center mb-4">
+                {/* Using AxisSelector component for visual selection */}
+                {dimensions && dimensions.length >= 4 && (
+                  <AxisSelector
+                    dimensions={dimensions}
+                    record={{
+                      id: 0, // Temporary ID
+                      name: "",
+                      settings: {
+                        xPositive: { id: 0, name: dimensions[0] },
+                        xNegative: { id: 0, name: dimensions[1] },
+                        yPositive: { id: 0, name: dimensions[2] },
+                        yNegative: { id: 0, name: dimensions[3] },
+                      },
+                    }}
+                    form={addTabForm}
+                    noForm={true} // Don't render a nested form
+                    onSettingsChange={(settings) => {
+                      console.log("Selected settings:", settings);
+
+                      // Map the selected names back to their IDs
+                      const xPositiveId = tableData.dimensions.find(
+                        (d) => d.name === settings.xPositive.name
+                      )?.id;
+                      const xNegativeId = tableData.dimensions.find(
+                        (d) => d.name === settings.xNegative.name
+                      )?.id;
+                      const yPositiveId = tableData.dimensions.find(
+                        (d) => d.name === settings.yPositive.name
+                      )?.id;
+                      const yNegativeId = tableData.dimensions.find(
+                        (d) => d.name === settings.yNegative.name
+                      )?.id;
+
+                      // Update the form values with the IDs
+                      addTabForm.setFieldsValue({
+                        xPositiveCriteriaId: xPositiveId,
+                        xNegativeCriteriaId: xNegativeId,
+                        yPositiveCriteriaId: yPositiveId,
+                        yNegativeCriteriaId: yNegativeId,
+                      });
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Hidden form items to store criteria IDs */}
+            <Form.Item name="xPositiveCriteriaId" hidden={true}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="xNegativeCriteriaId" hidden={true}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="yPositiveCriteriaId" hidden={true}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="yNegativeCriteriaId" hidden={true}>
+              <Input />
+            </Form.Item>
+
+            <Form.Item>
+              <Button
+                type="primary"
+                htmlType="submit"
+                block
+                disabled={!dimensions || dimensions.length < 4}
+              >
+                Create Axis Setting
+              </Button>
+              {(!dimensions || dimensions.length < 4) && (
+                <div className="text-red-500 text-sm mt-2">
+                  You need at least 4 dimensions to create an axis setting
+                </div>
+              )}
+            </Form.Item>
+          </Form>
+        </Drawer>
+      )}
     </Skeleton>
   );
 }
