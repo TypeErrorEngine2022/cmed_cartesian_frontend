@@ -1,65 +1,48 @@
 import { useState, useEffect } from "react";
-import { CartesianSettings } from "./types";
+import { AxisConfigRecord, CartesianPlaneConfig } from "../types";
 
 interface AxisSelectorProps {
-  columns: string[];
-  onSettingsChange: (settings: CartesianSettings) => void;
+  record: AxisConfigRecord;
+  dimensions: string[];
+  onSettingsChange: (settings: CartesianPlaneConfig) => void;
 }
 
 export const AxisSelector: React.FC<AxisSelectorProps> = ({
-  columns,
+  record,
+  dimensions,
   onSettingsChange,
 }) => {
-  const [settings, setSettings] = useState<CartesianSettings>({
-    xPositive: columns[0] || "",
-    xNegative: columns[1] || "",
-    yPositive: columns[2] || "",
-    yNegative: columns[3] || "",
-  });
+  const [localSettings, setLocalSettings] = useState<CartesianPlaneConfig>(
+    record.settings
+  );
 
+  // Update local state when record changes from parent
   useEffect(() => {
-    // Only set initial defaults when component first mounts or when columns are empty initially
-    if (
-      columns.length >= 4 &&
-      (settings.xPositive === "" ||
-        settings.xNegative === "" ||
-        settings.yPositive === "" ||
-        settings.yNegative === "" ||
-        !columns.includes(settings.xPositive) ||
-        !columns.includes(settings.xNegative) ||
-        !columns.includes(settings.yPositive) ||
-        !columns.includes(settings.yNegative))
-    ) {
-      setSettings({
-        xPositive: columns[0],
-        xNegative: columns[1],
-        yPositive: columns[2],
-        yNegative: columns[3],
-      });
-    }
-  }, [columns, settings]);
-
-  useEffect(() => {
-    onSettingsChange(settings);
-  }, [settings, onSettingsChange]);
+    setLocalSettings(record.settings);
+  }, [record.settings]);
 
   const handleSettingChange = (
-    axis: keyof CartesianSettings,
-    value: string
+    axisType: keyof CartesianPlaneConfig,
+    newName: string
   ) => {
-    setSettings((prev) => {
-      const newSettings = { ...prev, [axis]: value };
-      return newSettings;
-    });
-  };
+    // Find the dimension with matching name
+    const dimensionObj = record.settings[axisType];
 
-  if (columns.length < 4) {
-    return (
-      <div className="mb-6 p-4 pr-8 bg-yellow-50 text-yellow-800 rounded">
-        Please add at least 4 columns to use the Cartesian plot.
-      </div>
-    );
-  }
+    // Create a new settings object with the updated axis
+    const updatedSettings = {
+      ...localSettings,
+      [axisType]: {
+        ...dimensionObj,
+        name: newName,
+      },
+    };
+
+    // Update local state
+    setLocalSettings(updatedSettings);
+
+    // Notify parent component about the change
+    onSettingsChange(updatedSettings);
+  };
 
   return (
     <div className="m-6">
@@ -74,10 +57,10 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
         <div className="absolute top-0">
           <select
             className="p-4 pr-8 border rounded bg-white shadow-md"
-            value={settings.yPositive}
+            value={localSettings?.yPositive.name}
             onChange={(e) => handleSettingChange("yPositive", e.target.value)}
           >
-            {columns.map((column) => (
+            {dimensions?.map((column) => (
               <option key={`yPos-${column}`} value={column}>
                 {column}
               </option>
@@ -89,10 +72,10 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
         <div className="absolute right-0">
           <select
             className="p-4 pr-8 border rounded bg-white shadow-md"
-            value={settings.xPositive}
+            value={localSettings?.xPositive.name}
             onChange={(e) => handleSettingChange("xPositive", e.target.value)}
           >
-            {columns.map((column) => (
+            {dimensions?.map((column) => (
               <option key={`xPos-${column}`} value={column}>
                 {column}
               </option>
@@ -104,10 +87,10 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
         <div className="absolute bottom-0">
           <select
             className="p-4 pr-8 border rounded bg-white shadow-md"
-            value={settings.yNegative}
+            value={localSettings?.yNegative.name}
             onChange={(e) => handleSettingChange("yNegative", e.target.value)}
           >
-            {columns.map((column) => (
+            {dimensions?.map((column) => (
               <option key={`yNeg-${column}`} value={column}>
                 {column}
               </option>
@@ -119,10 +102,10 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
         <div className="absolute left-0">
           <select
             className="p-4 pr-8 border rounded bg-white shadow-md"
-            value={settings.xNegative}
+            value={localSettings?.xNegative.name}
             onChange={(e) => handleSettingChange("xNegative", e.target.value)}
           >
-            {columns.map((column) => (
+            {dimensions?.map((column) => (
               <option key={`xNeg-${column}`} value={column}>
                 {column}
               </option>

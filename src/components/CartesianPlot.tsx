@@ -11,11 +11,16 @@ import {
   LabelList,
   ReferenceLine,
 } from "recharts";
-import { TableData, CartesianSettings, Row, CartesianPoint } from "./types";
+import {
+  TableData,
+  CartesianPlaneConfig,
+  DataPoint,
+  PlotPoint,
+} from "../types";
 
 interface CartesianPlotProps {
   data: TableData;
-  settings: CartesianSettings;
+  settings: CartesianPlaneConfig;
   fullScreen?: boolean;
 }
 
@@ -53,20 +58,20 @@ export const CartesianPlot: React.FC<CartesianPlotProps> = ({
   settings,
   fullScreen = false,
 }) => {
-  const [invalidPoints, setInvalidPoints] = useState<Row[]>([]);
+  const [invalidPoints, setInvalidPoints] = useState<DataPoint[]>([]);
   const { xPositive, xNegative, yPositive, yNegative } = settings;
-  const [chartData, setChartData] = useState<CartesianPoint[]>([]);
+  const [chartData, setChartData] = useState<PlotPoint[]>([]);
 
   // Convert table data to plot points
   const prepareChartData = () => {
-    const validRows: Row[] = [];
-    const invalidRows: Row[] = [];
-    for (const row of data.rows) {
+    const validRows: DataPoint[] = [];
+    const invalidRows: DataPoint[] = [];
+    for (const row of data.dataPoints) {
       if (
-        !isValidNumber(row.attributes[xPositive]) ||
-        !isValidNumber(row.attributes[xNegative]) ||
-        !isValidNumber(row.attributes[yPositive]) ||
-        !isValidNumber(row.attributes[yNegative])
+        !isValidNumber(row.attributes[xPositive.name]) ||
+        !isValidNumber(row.attributes[xNegative.name]) ||
+        !isValidNumber(row.attributes[yPositive.name]) ||
+        !isValidNumber(row.attributes[yNegative.name])
       ) {
         invalidRows.push(row);
       } else {
@@ -77,13 +82,13 @@ export const CartesianPlot: React.FC<CartesianPlotProps> = ({
     setChartData(
       validRows.map((row) => {
         // Calculate X coordinate based on xPositive and xNegative values
-        const xPosValue = parseFloat(row.attributes[xPositive] || "0");
-        const xNegValue = parseFloat(row.attributes[xNegative] || "0");
+        const xPosValue = parseFloat(row.attributes[xPositive.name] || "0");
+        const xNegValue = parseFloat(row.attributes[xNegative.name] || "0");
         const xCoord = xPosValue - xNegValue;
 
         // Calculate Y coordinate based on yPositive and yNegative values
-        const yPosValue = parseFloat(row.attributes[yPositive] || "0");
-        const yNegValue = parseFloat(row.attributes[yNegative] || "0");
+        const yPosValue = parseFloat(row.attributes[yPositive.name] || "0");
+        const yNegValue = parseFloat(row.attributes[yNegative.name] || "0");
         const yCoord = yPosValue - yNegValue;
 
         return {
@@ -142,13 +147,13 @@ export const CartesianPlot: React.FC<CartesianPlotProps> = ({
           {/* Reference lines for axes with labels at tips */}
           <ReferenceLine x={0} stroke="#000" strokeWidth={1.5}>
             <Label
-              value={`${yPositive}`}
+              value={`${yPositive.name}`}
               position="top"
               offset={20}
               style={{ textAnchor: "middle" }}
             />
             <Label
-              value={`${yNegative}`}
+              value={`${yNegative.name}`}
               position="bottom"
               offset={20}
               style={{ textAnchor: "middle" }}
@@ -156,13 +161,13 @@ export const CartesianPlot: React.FC<CartesianPlotProps> = ({
           </ReferenceLine>
           <ReferenceLine y={0} stroke="#000" strokeWidth={1.5}>
             <Label
-              value={`${xNegative}`}
+              value={`${xNegative.name}`}
               position="left"
               offset={20}
               style={{ textAnchor: "end" }}
             />
             <Label
-              value={`${xPositive}`}
+              value={`${xPositive.name}`}
               position="right"
               offset={20}
               style={{ textAnchor: "start" }}
@@ -228,8 +233,8 @@ export const CartesianPlot: React.FC<CartesianPlotProps> = ({
             <span className="font-semibold">{row.name}</span>:{" "}
             {Object.values([xNegative, xPositive, yNegative, yPositive]).map(
               (axis) => (
-                <span key={axis}>
-                  {axis}={row.attributes[axis]}{" "}
+                <span key={axis.name}>
+                  {axis.name}={row.attributes[axis.name]}{" "}
                 </span>
               )
             )}

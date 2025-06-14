@@ -5,7 +5,7 @@ import { useSwrDefaultConfig } from "./useSWRDefaultConfig";
 
 export default function useTableData() {
   const {
-    data: tableData,
+    data,
     isLoading: isTableDataLoading,
     isValidating: isTableDataRefreshing,
     mutate: refreshTableData,
@@ -19,9 +19,9 @@ export default function useTableData() {
   );
 
   return {
-    tableData: tableData ?? {
-      columns: [],
-      rows: [],
+    tableData: data ?? {
+      dimensions: [],
+      dataPoints: [],
     },
     isTableDataLoading,
     isTableDataRefreshing,

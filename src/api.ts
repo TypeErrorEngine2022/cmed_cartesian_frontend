@@ -1,5 +1,5 @@
 import axios from "axios";
-import { TableData } from "./types";
+import { AxisConfigRecord, TableData, AxisConfigUpdateRequest } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -64,5 +64,21 @@ export const api = {
 
   importTable: async (data: TableData): Promise<void> => {
     await axios.post(`${API_URL}/import`, { data });
+  },
+
+  getAxisSettings: async (): Promise<AxisConfigRecord[]> => {
+    const response = await axios.get(`${API_URL}/axis-settings`);
+    return response.data;
+  },
+
+  updateAxisSetting: async (
+    id: AxisConfigRecord["id"],
+    dto: AxisConfigUpdateRequest
+  ): Promise<void> => {
+    await axios.put(`${API_URL}/axis-settings/${id}`, dto);
+  },
+
+  deleteAxisSetting: async (id: string): Promise<void> => {
+    await axios.delete(`${API_URL}/axis-settings/${id}`);
   },
 };

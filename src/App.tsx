@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { DataTable } from "./DataTable";
-import { CartesianPlot } from "./CartesianPlot";
-import { AxisSelector } from "./AxisSelector";
-import { CartesianSettings } from "./types";
+import { AxisConfigRecord } from "./types";
 import { useAuth } from "./AuthContext";
 import useTableData from "./hooks/useTableData";
+import { DataTable } from "./components/DataTable";
+import { CartesianPlot } from "./components/CartesianPlot";
+import PlotTabs from "./components/PlotTab";
 
 function App() {
   const { logout } = useAuth();
@@ -15,37 +15,14 @@ function App() {
     refreshTableData,
     tableDataError,
   } = useTableData();
-  const [plotSettings, setPlotSettings] = useState<CartesianSettings>({
-    xPositive: "",
-    xNegative: "",
-    yPositive: "",
-    yNegative: "",
-  });
-  // Add state for the full-screen drawer
+  const [focusTabRecord, setFocusTabRecord] = useState<AxisConfigRecord>();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Handle plot settings change
-  const handlePlotSettingsChange = (settings: CartesianSettings) => {
-    setPlotSettings(settings);
-    // Store settings in localStorage for persistence
-    localStorage.setItem("cartesianPlotSettings", JSON.stringify(settings));
-  };
-
-  // Load saved settings from localStorage
-  useEffect(() => {
-    const savedSettings = localStorage.getItem("cartesianPlotSettings");
-    if (savedSettings) {
-      try {
-        const parsedSettings = JSON.parse(savedSettings);
-        setPlotSettings(parsedSettings);
-      } catch (err) {
-        console.error("Error parsing saved plot settings:", err);
-      }
-    }
-  }, []);
-
   // Toggle full-screen drawer
-  const toggleDrawer = () => {
+  const toggleDrawer = (record: AxisConfigRecord) => {
+    setFocusTabRecord((prev) => {
+      return prev ? undefined : record;
+    });
     setIsDrawerOpen(!isDrawerOpen);
 
     if (isDrawerOpen) {
@@ -101,56 +78,24 @@ function App() {
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       ) : (
-        <div className="">
+        <div>
           <div className="mb-5">
             <DataTable data={tableData} onDataChange={refreshTableData} />
           </div>
 
-          <div>
-            <AxisSelector
-              columns={tableData.columns}
-              onSettingsChange={handlePlotSettingsChange}
-            />
-
-            {tableData.columns.length >= 4 && (
-              <div className="mb-24 relative">
-                <div className="absolute top-2 right-2 z-10">
-                  <button
-                    onClick={toggleDrawer}
-                    className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 focus:outline-none"
-                    title="Magnify Plot"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path d="M5 8a1 1 0 011-1h1V6a1 1 0 012 0v1h1a1 1 0 110 2H9v1a1 1 0 11-2 0V9H6a1 1 0 01-1-1z" />
-                      <path
-                        fillRule="evenodd"
-                        d="M2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8zm6-4a4 4 0 100 8 4 4 0 000-8z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                </div>
-                <CartesianPlot data={tableData} settings={plotSettings} />
-              </div>
-            )}
-          </div>
+          <PlotTabs tableData={tableData} toggleDrawer={toggleDrawer} />
         </div>
       )}
 
       {/* Full-screen drawer for the magnified plot */}
-      {isDrawerOpen && (
+      {isDrawerOpen && focusTabRecord && (
         <div className="fixed inset-0 bg-white bg-opacity-100 z-50 flex flex-col">
           <div className="p-4 flex justify-between items-center">
             <h2 className="text-xl font-bold text-white">
               Magnified Cartesian Plot
             </h2>
             <button
-              onClick={toggleDrawer}
+              onClick={() => toggleDrawer(focusTabRecord)}
               className="p-2 bg-red-500 text-white rounded hover:bg-red-600 focus:outline-none"
             >
               Close
@@ -160,7 +105,7 @@ function App() {
             <div className="w-full h-full">
               <CartesianPlot
                 data={tableData}
-                settings={plotSettings}
+                settings={focusTabRecord.settings}
                 fullScreen={true}
               />
             </div>

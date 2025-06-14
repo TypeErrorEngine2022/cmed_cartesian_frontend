@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
-import { TableData } from "./types";
-import { api } from "./api";
+import { useState, useRef, useEffect } from "react";
+import { TableData } from "../types";
+import { api } from "../api";
 
 interface DataTableProps {
   data: TableData;
@@ -32,7 +32,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
 
   const handleAddColumn = async () => {
     if (!newColumnName.trim()) return;
-    if (data.columns.includes(newColumnName)) {
+    if (data.dimensions.map((axis) => axis.name).includes(newColumnName)) {
       alert("已存在相同名稱的欄位。請選擇另一個名稱。");
       return;
     }
@@ -48,7 +48,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
 
   const handleAddRow = async () => {
     if (!newRowName.trim()) return;
-    if (data.rows.some((row) => row.name === newRowName)) {
+    if (data.dataPoints.some((row) => row.name === newRowName)) {
       alert("已存在相同名稱的行。請選擇另一個名稱。");
       return;
     }
@@ -75,7 +75,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
     if (!editCellInfo) return;
 
     // Get the current value from the data structure for comparison
-    const currentRow = data.rows.find(
+    const currentRow = data.dataPoints.find(
       (row) => row.name === editCellInfo.rowName
     );
     const currentValue =
@@ -113,7 +113,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
   const handleAnnotationUpdate = async () => {
     if (!editAnnotationInfo) return;
 
-    const currentRow = data.rows.find(
+    const currentRow = data.dataPoints.find(
       (row) => row.name === editAnnotationInfo.rowName
     );
     const currentValue = currentRow?.annotation || "";
@@ -151,7 +151,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
   const handleRowNameUpdate = async () => {
     if (!editRowNameInfo) return;
 
-    const currentRow = data.rows.find(
+    const currentRow = data.dataPoints.find(
       (row) => row.name === editRowNameInfo.rowName
     );
     const currentValue = currentRow?.name || "NA";
@@ -431,14 +431,14 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
           <tr>
             <th className="w-[150px] min-w-[150px]">Name</th>
             <th className="w-[200px] min-w-[200px]">Annotation</th>
-            {data.columns.map((column) => (
+            {data.dimensions?.map((column) => (
               <th
-                key={column}
+                key={column.name}
                 className="relative group w-[120px] min-w-[120px]"
               >
-                {column}
+                {column.name}
                 <button
-                  onClick={() => handleDeleteColumnClick(column)}
+                  onClick={() => handleDeleteColumnClick(column.name)}
                   className="absolute top-0 right-0 text-xs text-red-500 hover:text-red-700 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                   title="Delete column"
                 >
@@ -449,7 +449,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
           </tr>
         </thead>
         <tbody>
-          {data.rows.map((row) => (
+          {data.dataPoints?.map((row) => (
             <tr key={row.name}>
               <td
                 onClick={() => handleRowNameClick(row.name, row.name)}
@@ -514,21 +514,21 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
                   <div className="text-wrap">{row.annotation || ""}</div>
                 )}
               </td>
-              {data.columns.map((column) => (
+              {data.dimensions?.map((column) => (
                 <td
-                  key={`${row.name}-${column}`}
+                  key={`${row.name}-${column.name}`}
                   onClick={() =>
                     handleCellClick(
                       row.name,
-                      column,
-                      row.attributes[column] || "NA"
+                      column.name,
+                      row.attributes[column.name] || "NA"
                     )
                   }
                   className="cursor-pointer p-2 h-[42px] relative"
                 >
                   {editCellInfo &&
                   editCellInfo.rowName === row.name &&
-                  editCellInfo.columnName === column ? (
+                  editCellInfo.columnName === column.name ? (
                     <div className="flex">
                       <input
                         type="text"
@@ -551,7 +551,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
                     </div>
                   ) : (
                     <div className="truncate">
-                      {row.attributes[column] || "NA"}
+                      {row.attributes[column.name] || "NA"}
                     </div>
                   )}
                 </td>

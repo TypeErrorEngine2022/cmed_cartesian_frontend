@@ -1,24 +1,43 @@
+export type Axis = {
+  id: number;
+  name: string;
+};
+
 export interface TableData {
-  columns: string[];
-  rows: Row[];
+  dimensions: Axis[];
+  dataPoints: DataPoint[];
 }
 
-export interface Row {
+export interface DataPoint {
   name: string;
   annotation: string;
   attributes: Record<string, string>;
 }
 
-export interface CartesianSettings {
-  xPositive: string;
-  xNegative: string;
-  yPositive: string;
-  yNegative: string;
+export interface CartesianPlaneConfig {
+  xPositive: Axis;
+  xNegative: Axis;
+  yPositive: Axis;
+  yNegative: Axis;
 }
 
-export interface CartesianPoint {
+export interface PlotPoint {
   x: number;
   y: number;
   name: string;
   annotation: string;
 }
+
+export interface AxisConfigUpdateRequest {
+  name: Axis["name"];
+  xNegativeCriteriaId: Axis["id"];
+  xPositiveCriteriaId: Axis["id"];
+  yNegativeCriteriaId: Axis["id"];
+  yPositiveCriteriaId: Axis["id"];
+}
+
+export type AxisConfigRecord = {
+  id: Axis["id"];
+  name: Axis["name"];
+  settings: CartesianPlaneConfig;
+};
