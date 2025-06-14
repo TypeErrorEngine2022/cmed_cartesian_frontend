@@ -71,14 +71,22 @@ export const api = {
     return response.data;
   },
 
+  addAxisSetting: async (
+    dto: AxisConfigUpdateRequest
+  ): Promise<AxisConfigRecord> => {
+    const response = await axios.post(`${API_URL}/axis-settings`, dto);
+    return response.data;
+  },
+
   updateAxisSetting: async (
     id: AxisConfigRecord["id"],
     dto: AxisConfigUpdateRequest
-  ): Promise<void> => {
-    await axios.put(`${API_URL}/axis-settings/${id}`, dto);
+  ): Promise<AxisConfigRecord> => {
+    const reponse = await axios.put(`${API_URL}/axis-settings/${id}`, dto);
+    return reponse.data;
   },
 
-  deleteAxisSetting: async (id: string): Promise<void> => {
+  deleteAxisSetting: async (id: AxisConfigRecord["id"]): Promise<void> => {
     await axios.delete(`${API_URL}/axis-settings/${id}`);
   },
 };
