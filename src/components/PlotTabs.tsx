@@ -55,6 +55,7 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
   const [activeKey, setActiveKey] = useState<string>();
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
+  const [deleteTabKey, setDeleteTabKey] = useState<string | null>(null);
   const [addTabForm] = Form.useForm();
   const [editTabNameForm] = Form.useForm();
   const [editingTabId, setEditingTabId] = useState<number | null>(null);
@@ -324,22 +325,28 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
     if (action === "add") {
       setIsDrawerOpen(true);
     } else {
+      setDeleteTabKey(_targetKey as string);
       setIsDialogOpen(true);
     }
   };
 
   useEffect(() => {
+    // Only set activeKey automatically if it's not set or invalid
+    // AND we're not in the middle of a delete operation
     if (
-      (!activeKey || activeKey === NULL_ACTIVE_KEY) &&
+      (!activeKey ||
+        activeKey === NULL_ACTIVE_KEY ||
+        (axisSettings &&
+          !axisSettings.some((axis) => getAxisKey(axis) === activeKey))) &&
       axisSettings &&
-      axisSettings.length > 0
+      axisSettings.length > 0 &&
+      !deleteTabKey // Don't override during deletion
     ) {
-      console.log("Setting active key to first axis setting");
       setActiveKey(getAxisKey(axisSettings[0]));
-    } else {
+    } else if (!axisSettings || axisSettings.length === 0) {
       setActiveKey(NULL_ACTIVE_KEY);
     }
-  }, [axisSettings]);
+  }, [axisSettings, activeKey, deleteTabKey]);
 
   // Handle form submission for adding a new axis setting
   const handleAddAxisSetting = async (values: AxisConfigUpdateRequest) => {
@@ -406,12 +413,25 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
         cancelText="Cancel"
         okType="danger"
         onOk={async () => {
-          const axisId = getAxisIdFromKey(activeKey ?? "");
+          const axisId = getAxisIdFromKey(deleteTabKey ?? "");
           if (axisId) {
             await api.deleteAxisSetting(axisId);
-            mutate();
-            setActiveKey(NULL_ACTIVE_KEY);
+            if (activeKey === deleteTabKey) {
+              // focus the last tab if available
+              if (axisSettings && axisSettings.length > 1) {
+                // Find the index of the deleted tab
+                const deletedIndex = axisSettings.findIndex(
+                  (axis) => getAxisKey(axis) === deleteTabKey
+                );
+                // Set active key to the previous tab, or the first tab if deleting the first
+                const newActiveIndex = Math.max(0, deletedIndex - 1);
+                setActiveKey(getAxisKey(axisSettings[newActiveIndex]));
+              }
+            }
+            await mutate(); // Move mutate after setting the activeKey
+            message.success("Axis setting deleted successfully");
           }
+          setDeleteTabKey(null); // Reset deleteTabKey after operation is complete
           setIsDialogOpen(false);
         }}
       >
