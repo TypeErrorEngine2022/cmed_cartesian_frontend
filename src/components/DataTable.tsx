@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { TableData } from "../types";
+import { Axis, DataPoint, TableData } from "../types";
 import { api } from "../api";
 import useMessage from "antd/es/message/useMessage";
 import { message } from "antd";
@@ -11,28 +11,27 @@ interface DataTableProps {
 
 export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
   const [messageApi, contextHolder] = useMessage();
-  message.config({
-    maxCount: 4,
-  });
   const [newColumnName, setNewColumnName] = useState("");
   const [newRowName, setNewRowName] = useState("");
   const [editCellInfo, setEditCellInfo] = useState<{
-    rowName: string;
-    columnName: string;
-    value: string;
+    rowName: DataPoint["name"];
+    columnName: Axis["name"];
+    value: string | number;
   } | null>(null);
   const [editAnnotationInfo, setEditAnnotationInfo] = useState<{
-    rowName: string;
-    value: string;
+    rowName: DataPoint["name"];
+    value: DataPoint["annotation"];
   } | null>(null);
   const [editRowNameInfo, setEditRowNameInfo] = useState<{
-    rowName: string;
+    rowName: DataPoint["name"];
     value: string;
   } | null>(null);
-  const [deleteColumnConfirm, setDeleteColumnConfirm] = useState<string | null>(
-    null
-  );
-  const [deleteRowConfirm, setDeleteRowConfirm] = useState<string | null>(null);
+  const [deleteColumnConfirm, setDeleteColumnConfirm] = useState<
+    Axis["name"] | null
+  >(null);
+  const [deleteRowConfirm, setDeleteRowConfirm] = useState<
+    DataPoint["name"] | null
+  >(null);
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,11 +68,11 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
   };
 
   const handleCellClick = (
-    rowName: string,
-    columnName: string,
-    value: string
+    rowName: DataPoint["name"],
+    columnName: Axis["name"],
+    value: DataPoint["attributes"][Axis["name"]]
   ) => {
-    setEditCellInfo({ rowName, columnName, value });
+    setEditCellInfo({ rowName, columnName, value: value.toString() });
     setEditAnnotationInfo(null); // Close any open annotation editor
   };
 
@@ -84,22 +83,23 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
     const currentRow = data.dataPoints.find(
       (row) => row.name === editCellInfo.rowName
     );
-    const currentValue =
-      currentRow?.attributes[editCellInfo.columnName] || "NA";
+    const currentValue = currentRow?.attributes[editCellInfo.columnName] || 0;
+
+    // Convert the editCellInfo.value to a number or use 0 if empty/null
+    const newValue =
+      editCellInfo.value === "" ||
+      editCellInfo.value === null ||
+      editCellInfo.value === undefined
+        ? 0
+        : Number(editCellInfo.value);
 
     // Only update if the value has actually changed
-    if (editCellInfo.value !== currentValue) {
-      if (editCellInfo.value === "") {
-        if (!window.confirm("您確定要將此單元格清空嗎？")) {
-          setEditCellInfo(null);
-          return;
-        }
-      }
+    if (newValue !== currentValue) {
       try {
         await api.updateCell(
           editCellInfo.rowName,
           editCellInfo.columnName,
-          editCellInfo.value
+          newValue
         );
         onDataChange();
       } catch (error) {
@@ -160,7 +160,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
     const currentRow = data.dataPoints.find(
       (row) => row.name === editRowNameInfo.rowName
     );
-    const currentValue = currentRow?.name || "NA";
+    const currentValue = currentRow?.name || 0;
 
     if (editRowNameInfo.value !== currentValue) {
       if (editRowNameInfo.value === "") {
@@ -200,7 +200,11 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
       setDeleteColumnConfirm(null);
       onDataChange();
     } catch (error) {
-      console.error("Error deleting column:", error);
+      let errorMessage = "Unknown error occurred";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      message.error(`錯誤: ${errorMessage}`);
     }
   };
 
@@ -528,7 +532,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
                     handleCellClick(
                       row.name,
                       column.name,
-                      row.attributes[column.name] || "NA"
+                      row.attributes[column.name] || 0
                     )
                   }
                   className="cursor-pointer p-2 h-[42px] relative"
@@ -538,7 +542,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
                   editCellInfo.columnName === column.name ? (
                     <div className="flex">
                       <input
-                        type="text"
+                        type="number"
                         value={editCellInfo?.value ?? ""}
                         onChange={(e) =>
                           setEditCellInfo({
@@ -558,7 +562,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
                     </div>
                   ) : (
                     <div className="truncate">
-                      {row.attributes[column.name] || "NA"}
+                      {row.attributes[column.name] || 0}
                     </div>
                   )}
                 </td>

@@ -49,8 +49,8 @@ const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
   return null;
 };
 
-const isValidNumber = (value: string): boolean => {
-  return value !== "NA";
+const isValidNumber = (value: number | undefined): boolean => {
+  return value !== undefined && !isNaN(value);
 };
 
 export const CartesianPlot: React.FC<CartesianPlotProps> = ({
@@ -82,13 +82,13 @@ export const CartesianPlot: React.FC<CartesianPlotProps> = ({
     setChartData(
       validRows.map((row) => {
         // Calculate X coordinate based on xPositive and xNegative values
-        const xPosValue = parseFloat(row.attributes[xPositive.name] || "0");
-        const xNegValue = parseFloat(row.attributes[xNegative.name] || "0");
+        const xPosValue = row.attributes[xPositive.name] || 0;
+        const xNegValue = row.attributes[xNegative.name] || 0;
         const xCoord = xPosValue - xNegValue;
 
         // Calculate Y coordinate based on yPositive and yNegative values
-        const yPosValue = parseFloat(row.attributes[yPositive.name] || "0");
-        const yNegValue = parseFloat(row.attributes[yNegative.name] || "0");
+        const yPosValue = row.attributes[yPositive.name] || 0;
+        const yNegValue = row.attributes[yNegative.name] || 0;
         const yCoord = yPosValue - yNegValue;
 
         return {

@@ -11,7 +11,7 @@ export interface TableData {
 export interface DataPoint {
   name: string;
   annotation: string;
-  attributes: Record<string, string>;
+  attributes: Record<Axis["name"], number>;
 }
 
 export interface CartesianPlaneConfig {

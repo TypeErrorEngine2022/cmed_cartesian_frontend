@@ -1,5 +1,11 @@
 import axios from "axios";
-import { AxisConfigRecord, TableData, AxisConfigUpdateRequest } from "./types";
+import {
+  AxisConfigRecord,
+  TableData,
+  AxisConfigUpdateRequest,
+  DataPoint,
+  Axis,
+} from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -18,7 +24,7 @@ export const api = {
     return response.data;
   },
 
-  addColumn: async (column_name: string): Promise<void> => {
+  addColumn: async (column_name: Axis["name"]): Promise<void> => {
     await axios.post(`${API_URL}/column`, { column_name });
   },
 
@@ -26,30 +32,40 @@ export const api = {
     await axios.post(`${API_URL}/row`, { name });
   },
 
-  updateRowName: async (old_name: string, new_name: string): Promise<void> => {
+  updateRowName: async (
+    old_name: DataPoint["name"],
+    new_name: string
+  ): Promise<void> => {
     await axios.put(`${API_URL}/row/${old_name}/name`, { new_name });
   },
 
   updateCell: async (
     row_id: string,
-    column_name: string,
-    value: string
+    column_name: Axis["name"],
+    value: DataPoint["attributes"][Axis["name"]]
   ): Promise<void> => {
     await axios.put(`${API_URL}/cell`, { row_id, column_name, value });
   },
 
   updateAnnotation: async (
     row_id: string,
-    annotation: string
+    annotation: DataPoint["annotation"]
   ): Promise<void> => {
     await axios.put(`${API_URL}/annotation`, { row_id, annotation });
   },
 
-  deleteColumn: async (column_name: string): Promise<void> => {
-    await axios.delete(`${API_URL}/column/${column_name}`);
+  deleteColumn: async (column_name: Axis["name"]): Promise<void> => {
+    try {
+      await axios.delete(`${API_URL}/column/${column_name}`);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(error.response.data.error);
+      }
+      throw new Error("Network error occurred");
+    }
   },
 
-  deleteRow: async (row_name: string): Promise<void> => {
+  deleteRow: async (row_name: DataPoint["name"]): Promise<void> => {
     await axios.delete(`${API_URL}/row/${row_name}`);
   },
 
