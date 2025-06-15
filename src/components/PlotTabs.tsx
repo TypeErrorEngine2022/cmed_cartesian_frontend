@@ -14,6 +14,7 @@ import {
   Skeleton,
   Tabs,
   Popover,
+  message,
 } from "antd";
 import { AxisSelector } from "./AxisSelector";
 import { api } from "../api";
@@ -342,10 +343,28 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
 
   // Handle form submission for adding a new axis setting
   const handleAddAxisSetting = async (values: AxisConfigUpdateRequest) => {
-    await api.addAxisSetting(values);
-    addTabForm.resetFields();
-    mutate();
-    setIsDrawerOpen(false);
+    try {
+      await api.addAxisSetting(values);
+      addTabForm.resetFields();
+
+      // Mutate and wait for the data to be refreshed
+      const updatedSettings = await mutate();
+      setIsDrawerOpen(false);
+
+      // Find the newly created setting (should be the last one in the list)
+      if (updatedSettings && updatedSettings.length > 0) {
+        // Find the setting with the name we just added
+        const newSetting = updatedSettings.find(
+          (setting) => setting.name === values.name
+        );
+        if (newSetting) {
+          // Set active key to the newly created tab
+          setActiveKey(getAxisKey(newSetting));
+        }
+      }
+    } catch (error) {
+      message.error(`Failed to add new axis setting: ${JSON.stringify(error)}`);
+    }
   };
 
   return (
