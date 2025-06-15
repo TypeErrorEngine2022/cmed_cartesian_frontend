@@ -61,6 +61,7 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
   const [editingTabId, setEditingTabId] = useState<number | null>(null);
   const [isTabNamePopoverOpen, setIsTabNamePopoverOpen] =
     useState<boolean>(false);
+  const [isCreatingNewTab, setIsCreatingNewTab] = useState<boolean>(false);
 
   const dimensions = tableData.dimensions?.map((d) => d.name);
 
@@ -351,6 +352,7 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
   // Handle form submission for adding a new axis setting
   const handleAddAxisSetting = async (values: AxisConfigUpdateRequest) => {
     try {
+      setIsCreatingNewTab(true);
       await api.addAxisSetting(values);
       addTabForm.resetFields();
 
@@ -371,6 +373,8 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
       }
     } catch (error) {
       message.error(`Failed to add new axis setting: ${JSON.stringify(error)}`);
+    } finally {
+      setIsCreatingNewTab(false);
     }
   };
 
@@ -541,6 +545,7 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
                 htmlType="submit"
                 block
                 disabled={!dimensions || dimensions.length < 4}
+                loading={isCreatingNewTab}
               >
                 Create Axis Setting
               </Button>
