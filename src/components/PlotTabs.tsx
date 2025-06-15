@@ -62,6 +62,10 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
   const [isTabNamePopoverOpen, setIsTabNamePopoverOpen] =
     useState<boolean>(false);
   const [isCreatingNewTab, setIsCreatingNewTab] = useState<boolean>(false);
+  const [isSavingAxisSettings, setIsSavingAxisSettings] =
+    useState<boolean>(false);
+  const [isUpdatingTabName, setIsUpdatingTabName] = useState<boolean>(false);
+  const [isDeletingTab, setIsDeletingTab] = useState<boolean>(false);
 
   const dimensions = tableData.dimensions?.map((d) => d.name);
 
@@ -80,6 +84,7 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
       console.log("Saving axis settings:", axisId, config);
 
       try {
+        setIsSavingAxisSettings(true);
         await api.updateAxisSetting(axis.id, {
           name: axis.name,
           xNegativeCriteriaId: config.xNegative.id,
@@ -94,6 +99,8 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
         setPendingSettings(null);
       } catch (error) {
         console.error("Failed to save axis settings:", error);
+      } finally {
+        setIsSavingAxisSettings(false);
       }
     }
   };
@@ -129,6 +136,7 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
     }
 
     try {
+      setIsUpdatingTabName(true);
       // We need to include all required fields from the existing settings
       await api.updateAxisSetting(editingTabId, {
         name: values.name,
@@ -146,6 +154,8 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
       setIsTabNamePopoverOpen(false);
     } catch (error) {
       console.error("Failed to update tab name:", error);
+    } finally {
+      setIsUpdatingTabName(false);
     }
   };
 
@@ -210,7 +220,12 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
                   <Button size="small" onClick={cancelTabNameEdit}>
                     Cancel
                   </Button>
-                  <Button size="small" type="primary" htmlType="submit">
+                  <Button
+                    size="small"
+                    type="primary"
+                    htmlType="submit"
+                    loading={isUpdatingTabName}
+                  >
                     Save
                   </Button>
                 </div>
@@ -271,6 +286,7 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
               </Button>
               <Button
                 type="primary"
+                loading={isSavingAxisSettings}
                 onClick={() =>
                   saveAxisSettings(axisConfigRecord.id, pendingSettings!)
                 }
@@ -357,8 +373,9 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
       addTabForm.resetFields();
 
       // Mutate and wait for the data to be refreshed
-      const updatedSettings = await mutate();
       setIsDrawerOpen(false);
+
+      const updatedSettings = await mutate();
 
       // Find the newly created setting (should be the last one in the list)
       if (updatedSettings && updatedSettings.length > 0) {
@@ -411,32 +428,50 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
       {/* confirm delete axis setting */}
       <Modal
         open={isDialogOpen}
-        onCancel={() => setIsDialogOpen(false)}
+        onCancel={() => {
+          setIsDialogOpen(false);
+          setDeleteTabKey(null);
+        }}
         closable
         okText="Delete"
         cancelText="Cancel"
         okType="danger"
+        confirmLoading={isDeletingTab}
         onOk={async () => {
           const axisId = getAxisIdFromKey(deleteTabKey ?? "");
           if (axisId) {
-            await api.deleteAxisSetting(axisId);
-            if (activeKey === deleteTabKey) {
-              // focus the last tab if available
-              if (axisSettings && axisSettings.length > 1) {
-                // Find the index of the deleted tab
-                const deletedIndex = axisSettings.findIndex(
-                  (axis) => getAxisKey(axis) === deleteTabKey
-                );
-                // Set active key to the previous tab, or the first tab if deleting the first
-                const newActiveIndex = Math.max(0, deletedIndex - 1);
-                setActiveKey(getAxisKey(axisSettings[newActiveIndex]));
+            try {
+              setIsDeletingTab(true);
+              await api.deleteAxisSetting(axisId);
+              if (activeKey === deleteTabKey) {
+                // focus the last tab if available
+                if (axisSettings && axisSettings.length > 1) {
+                  // Find the index of the deleted tab
+                  const deletedIndex = axisSettings.findIndex(
+                    (axis) => getAxisKey(axis) === deleteTabKey
+                  );
+                  // Set active key to the previous tab, or the first tab if deleting the first
+                  const newActiveIndex = Math.max(0, deletedIndex - 1);
+                  setActiveKey(getAxisKey(axisSettings[newActiveIndex]));
+                }
               }
+              message.success("Axis setting deleted successfully");
+
+              // Close modal and reset state on success
+              setDeleteTabKey(null);
+              setIsDialogOpen(false);
+              await mutate();
+            } catch (error) {
+              console.error("Failed to delete axis setting:", error);
+              message.error("Failed to delete axis setting");
+            } finally {
+              setIsDeletingTab(false);
             }
-            await mutate(); // Move mutate after setting the activeKey
-            message.success("Axis setting deleted successfully");
+          } else {
+            // If no axisId, just close the modal
+            setDeleteTabKey(null);
+            setIsDialogOpen(false);
           }
-          setDeleteTabKey(null); // Reset deleteTabKey after operation is complete
-          setIsDialogOpen(false);
         }}
       >
         <p>Are you sure you want to delete this axis setting?</p>
