@@ -5,7 +5,16 @@ import {
   TableData,
 } from "@/types";
 import type { TabsProps } from "antd";
-import { Button, Drawer, Form, Input, Modal, Skeleton, Tabs } from "antd";
+import {
+  Button,
+  Drawer,
+  Form,
+  Input,
+  Modal,
+  Skeleton,
+  Tabs,
+  Popover,
+} from "antd";
 import { AxisSelector } from "./AxisSelector";
 import { api } from "../api";
 import { CartesianPlot } from "./CartesianPlot";
@@ -46,6 +55,10 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
   const [addTabForm] = Form.useForm();
+  const [editTabNameForm] = Form.useForm();
+  const [editingTabId, setEditingTabId] = useState<number | null>(null);
+  const [isTabNamePopoverOpen, setIsTabNamePopoverOpen] =
+    useState<boolean>(false);
 
   const dimensions = tableData.dimensions?.map((d) => d.name);
 
@@ -88,6 +101,57 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
     setPendingSettings(null);
   };
 
+  // Handle tab name editing
+  const startEditingTabName = (axisId: number) => {
+    setEditingTabId(axisId);
+    setIsTabNamePopoverOpen(true);
+  };
+
+  // Handle tab name update
+  const handleTabNameUpdate = async (values: { name: string }) => {
+    if (editingTabId === null) return;
+
+    // Find the current axis setting
+    const currentSetting = axisSettings?.find(
+      (setting) => setting.id === editingTabId
+    );
+    if (!currentSetting) return;
+
+    // Check if name has changed
+    if (currentSetting.name === values.name) {
+      console.log("Tab name unchanged, skipping update");
+      setEditingTabId(null);
+      setIsTabNamePopoverOpen(false);
+      return;
+    }
+
+    try {
+      // We need to include all required fields from the existing settings
+      await api.updateAxisSetting(editingTabId, {
+        name: values.name,
+        xNegativeCriteriaId: currentSetting.settings.xNegative.id,
+        xPositiveCriteriaId: currentSetting.settings.xPositive.id,
+        yNegativeCriteriaId: currentSetting.settings.yNegative.id,
+        yPositiveCriteriaId: currentSetting.settings.yPositive.id,
+      });
+
+      // Refresh the data
+      await mutate();
+
+      // Reset editing state
+      setEditingTabId(null);
+      setIsTabNamePopoverOpen(false);
+    } catch (error) {
+      console.error("Failed to update tab name:", error);
+    }
+  };
+
+  const cancelTabNameEdit = () => {
+    setEditingTabId(null);
+    setIsTabNamePopoverOpen(false);
+    editTabNameForm.resetFields();
+  };
+
   const handlePlotSettingsChange = (
     axis: AxisConfigRecord,
     config: CartesianPlaneConfig
@@ -113,9 +177,74 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
         ? pendingSettings
         : axisConfigRecord.settings;
 
+    const tabLabel = (
+      <div className="flex items-center gap-2">
+        <span>{axisConfigRecord.name}</span>
+        {activeKey === getAxisKey(axisConfigRecord) && (
+          <Popover
+            open={isTabNamePopoverOpen && editingTabId === axisConfigRecord.id}
+            title="Edit Tab Name"
+            trigger="click"
+            content={
+              <Form
+                form={editTabNameForm}
+                layout="vertical"
+                onKeyDown={(e) => {
+                  // Prevent the keydown event from bubbling up to the Tabs component
+                  e.stopPropagation();
+                }}
+                onFinish={handleTabNameUpdate}
+                initialValues={{ name: axisConfigRecord.name }}
+                autoComplete="off"
+              >
+                <Form.Item
+                  name="name"
+                  rules={[{ required: true, message: "Please enter tab name" }]}
+                >
+                  <Input placeholder="Enter tab name" />
+                </Form.Item>
+                <div className="flex justify-end gap-2">
+                  <Button size="small" onClick={cancelTabNameEdit}>
+                    Cancel
+                  </Button>
+                  <Button size="small" type="primary" htmlType="submit">
+                    Save
+                  </Button>
+                </div>
+              </Form>
+            }
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent tab switch
+                startEditingTabName(axisConfigRecord.id);
+              }}
+              className="ml-2 text-gray-500 hover:text-blue-500 focus:outline-none"
+              title="Edit Tab Name"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                />
+              </svg>
+            </button>
+          </Popover>
+        )}
+      </div>
+    );
+
     return {
       key: getAxisKey(axisConfigRecord),
-      label: axisConfigRecord.name,
+      label: tabLabel,
       children: (
         <div>
           <AxisSelector
@@ -224,7 +353,26 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
       <Tabs
         className="m-6"
         activeKey={activeKey}
-        onChange={setActiveKey}
+        onChange={(activeKey) => {
+          setActiveKey(activeKey ?? NULL_ACTIVE_KEY);
+          setEditingTabId(null);
+          setIsTabNamePopoverOpen(false);
+          // Get the axis ID from the activeKey
+          const axisId = getAxisIdFromKey(activeKey);
+
+          // Find the corresponding axis setting
+          const axisSetting = axisSettings?.find(
+            (setting) => setting.id === axisId
+          );
+
+          // Set the form field value with the tab name if found
+          if (axisSetting) {
+            editTabNameForm.setFieldsValue({ name: axisSetting.name });
+          } else {
+            // Reset the form if no matching tab found
+            editTabNameForm.resetFields();
+          }
+        }}
         items={items}
         onEdit={onEdit}
         type="editable-card"
