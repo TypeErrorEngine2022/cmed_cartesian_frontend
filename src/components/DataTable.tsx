@@ -1,6 +1,8 @@
 import { useState, useRef } from "react";
 import { TableData } from "../types";
 import { api } from "../api";
+import useMessage from "antd/es/message/useMessage";
+import { message } from "antd";
 
 interface DataTableProps {
   data: TableData;
@@ -8,6 +10,10 @@ interface DataTableProps {
 }
 
 export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
+  const [messageApi, contextHolder] = useMessage();
+  message.config({
+    maxCount: 4,
+  });
   const [newColumnName, setNewColumnName] = useState("");
   const [newRowName, setNewRowName] = useState("");
   const [editCellInfo, setEditCellInfo] = useState<{
@@ -33,7 +39,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
   const handleAddColumn = async () => {
     if (!newColumnName.trim()) return;
     if (data.dimensions.map((axis) => axis.name).includes(newColumnName)) {
-      alert("已存在相同名稱的欄位。請選擇另一個名稱。");
+      messageApi.error("已存在相同名稱的欄位。請選擇另一個名稱。");
       return;
     }
 
@@ -49,7 +55,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
   const handleAddRow = async () => {
     if (!newRowName.trim()) return;
     if (data.dataPoints.some((row) => row.name === newRowName)) {
-      alert("已存在相同名稱的行。請選擇另一個名稱。");
+      messageApi.error("已存在相同名稱的欄位。請選擇另一個名稱。");
       return;
     }
 
@@ -241,7 +247,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error exporting table:", error);
-      alert("匯出數據失敗。請重試。");
+      messageApi.error("匯出數據失敗。請重試。");
     }
   };
 
@@ -285,7 +291,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
           ) {
             await api.importTable(importData.data);
             onDataChange();
-            alert("數據已成功匯入並合併！");
+            message.success("數據已成功匯入並合併！");
           }
         } catch (error) {
           console.error("Error parsing import file:", error);
@@ -307,6 +313,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
 
   return (
     <div className="overflow-x-auto">
+      {contextHolder}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold mb-4">Data Table</h2>
         <div className="flex space-x-2">
