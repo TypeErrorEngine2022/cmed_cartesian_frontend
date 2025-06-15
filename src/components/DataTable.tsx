@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Axis, DataPoint, TableData } from "../types";
 import { api } from "../api";
 import useMessage from "antd/es/message/useMessage";
-import { message } from "antd";
+import { message, Button } from "antd";
 
 interface DataTableProps {
   data: TableData;
@@ -35,6 +35,14 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Loading states for buttons that trigger API calls
+  const [isAddingColumn, setIsAddingColumn] = useState<boolean>(false);
+  const [isAddingRow, setIsAddingRow] = useState<boolean>(false);
+  const [isDeletingColumn, setIsDeletingColumn] = useState<boolean>(false);
+  const [isDeletingRow, setIsDeletingRow] = useState<boolean>(false);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isImporting, setIsImporting] = useState<boolean>(false);
+
   const handleAddColumn = async () => {
     if (!newColumnName.trim()) return;
     if (data.dimensions.map((axis) => axis.name).includes(newColumnName)) {
@@ -43,11 +51,14 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
     }
 
     try {
+      setIsAddingColumn(true);
       await api.addColumn(newColumnName);
       setNewColumnName("");
       onDataChange();
     } catch (error) {
       console.error("Error adding column:", error);
+    } finally {
+      setIsAddingColumn(false);
     }
   };
 
@@ -59,11 +70,14 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
     }
 
     try {
+      setIsAddingRow(true);
       await api.addRow(newRowName);
       setNewRowName("");
       onDataChange();
     } catch (error) {
       console.error("Error adding row:", error);
+    } finally {
+      setIsAddingRow(false);
     }
   };
 
@@ -196,6 +210,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
     if (!deleteColumnConfirm) return;
 
     try {
+      setIsDeletingColumn(true);
       await api.deleteColumn(deleteColumnConfirm);
       setDeleteColumnConfirm(null);
       onDataChange();
@@ -205,6 +220,8 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
         errorMessage = error.message;
       }
       message.error(`錯誤: ${errorMessage}`);
+    } finally {
+      setIsDeletingColumn(false);
     }
   };
 
@@ -220,16 +237,20 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
     if (!deleteRowConfirm) return;
 
     try {
+      setIsDeletingRow(true);
       await api.deleteRow(deleteRowConfirm);
       setDeleteRowConfirm(null);
       onDataChange();
     } catch (error) {
-      console.error("Error deleting column:", error);
+      console.error("Error deleting row:", error);
+    } finally {
+      setIsDeletingRow(false);
     }
   };
 
   const handleExportTable = async () => {
     try {
+      setIsExporting(true);
       const exportData = await api.exportTable();
 
       // Create a file to download
@@ -252,6 +273,8 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
     } catch (error) {
       console.error("Error exporting table:", error);
       messageApi.error("匯出數據失敗。請重試。");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -270,6 +293,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
     if (!file) return;
 
     try {
+      setIsImporting(true);
       const reader = new FileReader();
 
       reader.onload = async (e) => {
@@ -284,6 +308,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
             !importData.data.rows
           ) {
             setImportError("檔案格式無效。請使用有效的匯出檔案。");
+            setIsImporting(false);
             return;
           }
 
@@ -300,6 +325,8 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
         } catch (error) {
           console.error("Error parsing import file:", error);
           setImportError("無法解析匯入檔案。請確保它是有效的 JSON 檔案。");
+        } finally {
+          setIsImporting(false);
         }
       };
 
@@ -307,6 +334,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
     } catch (error) {
       console.error("Error reading import file:", error);
       setImportError("無法讀取匯入檔案。");
+      setIsImporting(false);
     } finally {
       // Reset file input
       if (fileInputRef.current) {
@@ -321,23 +349,26 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold mb-4">Data Table</h2>
         <div className="flex space-x-2">
-          <button
+          <Button
             onClick={handleExportTable}
-            className="text-sm px-4 py-2 rounded border-solid border-black border-[1px] hover:bg-gray-200"
+            loading={isExporting}
+            className="text-sm"
           >
             Export Table
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleImportClick}
-            className="text-sm px-4 py-2 rounded border-solid border-black border-[1px] hover:bg-gray-200"
+            loading={isImporting}
+            className="text-sm"
           >
             Import Table
-          </button>
+          </Button>
           <input
             type="file"
             ref={fileInputRef}
             onChange={handleImportTable}
             accept=".json"
+            disabled={isImporting}
             className="hidden"
           />
         </div>
@@ -352,18 +383,15 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
               」嗎？此操作無法撤銷，並會刪除此欄位中的所有數據。`}
             </p>
             <div className="flex justify-end space-x-2">
-              <button
-                onClick={handleDeleteColumnCancel}
-                className="px-4 py-2 border rounded hover:bg-gray-100"
-              >
-                取消
-              </button>
-              <button
+              <Button onClick={handleDeleteColumnCancel}>取消</Button>
+              <Button
                 onClick={handleDeleteColumnConfirm}
-                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                loading={isDeletingColumn}
+                danger
+                type="primary"
               >
                 刪除
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -378,18 +406,15 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
               」嗎？此操作無法撤銷，並會刪除此行中的所有數據。`}
             </p>
             <div className="flex justify-end space-x-2">
-              <button
-                onClick={handleDeleteRowCancel}
-                className="px-4 py-2 border rounded hover:bg-gray-100"
-              >
-                取消
-              </button>
-              <button
+              <Button onClick={handleDeleteRowCancel}>取消</Button>
+              <Button
                 onClick={handleDeleteRowConfirm}
-                className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                loading={isDeletingRow}
+                danger
+                type="primary"
               >
                 刪除
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -411,12 +436,13 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
             className="p-2 border rounded w-full"
           />
         </div>
-        <button
+        <Button
           onClick={handleAddColumn}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          loading={isAddingColumn}
+          type="primary"
         >
           Add Column
-        </button>
+        </Button>
       </div>
 
       <div className="flex space-x-4 mb-4">
@@ -429,12 +455,14 @@ export const DataTable: React.FC<DataTableProps> = ({ data, onDataChange }) => {
             className="p-2 border rounded w-full mb-2"
           />
         </div>
-        <button
+        <Button
           onClick={handleAddRow}
-          className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 self-start"
+          loading={isAddingRow}
+          type="primary"
+          style={{ backgroundColor: "#10b981", borderColor: "#10b981" }}
         >
           Add Row
-        </button>
+        </Button>
       </div>
 
       <table className="data-table w-full border-collapse">
