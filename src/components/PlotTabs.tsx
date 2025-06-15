@@ -11,7 +11,7 @@ import { api } from "../api";
 import { CartesianPlot } from "./CartesianPlot";
 import useSWR from "swr";
 import { useSwrDefaultConfig } from "../hooks/useSWRDefaultConfig";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 interface PlotTabProps {
   tableData: TableData;
@@ -49,108 +49,143 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
 
   const dimensions = tableData.dimensions?.map((d) => d.name);
 
-  // Use debounce to avoid too many API calls
-  const [pendingUpdates, setPendingUpdates] = useState<
-    Map<number, CartesianPlaneConfig>
-  >(new Map());
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Track which axis settings are being edited and their temporary states
+  const [editingAxisId, setEditingAxisId] = useState<number | null>(null);
+  const [pendingSettings, setPendingSettings] =
+    useState<CartesianPlaneConfig | null>(null);
 
-  // Function to update pending updates
-  const updatePendingSettings = useCallback(
-    (axisId: number, config: CartesianPlaneConfig) => {
-      setPendingUpdates((prevMap) => {
-        const newMap = new Map(prevMap);
-        newMap.set(axisId, config);
-        return newMap;
-      });
+  // Save changes to the backend
+  const saveAxisSettings = async (
+    axisId: number,
+    config: CartesianPlaneConfig
+  ) => {
+    const axis = axisSettings?.find((a) => a.id === axisId);
+    if (axis && config) {
+      console.log("Saving axis settings:", axisId, config);
 
-      // Clear existing timer
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
+      try {
+        await api.updateAxisSetting(axis.id, {
+          name: axis.name,
+          xNegativeCriteriaId: config.xNegative.id,
+          xPositiveCriteriaId: config.xPositive.id,
+          yNegativeCriteriaId: config.yNegative.id,
+          yPositiveCriteriaId: config.yPositive.id,
+        });
+
+        // Refresh the data and reset editing state
+        await mutate();
+        setEditingAxisId(null);
+        setPendingSettings(null);
+      } catch (error) {
+        console.error("Failed to save axis settings:", error);
       }
+    }
+  };
 
-      // Set a new timer to apply updates after delay
-      debounceTimerRef.current = setTimeout(async () => {
-        if (pendingUpdates.size > 0) {
-          // Apply all pending updates
-          const updatePromises = Array.from(pendingUpdates).map(
-            ([axisId, config]) => {
-              const axis = axisSettings?.find((a) => a.id === axisId);
-              if (axis) {
-                return api.updateAxisSetting(axis.id, {
-                  name: axis.name,
-                  xNegativeCriteriaId: config.xNegative.id,
-                  xPositiveCriteriaId: config.xPositive.id,
-                  yNegativeCriteriaId: config.yNegative.id,
-                  yPositiveCriteriaId: config.yPositive.id,
-                });
-              }
-              return Promise.resolve();
-            }
-          );
-
-          await Promise.all(updatePromises);
-          setPendingUpdates(new Map());
-          mutate(); // Only mutate once after all updates are done
-        }
-      }, 2000); // 1 second debounce
-    },
-    [axisSettings, mutate, pendingUpdates]
-  );
+  // Cancel changes and restore original settings
+  const cancelAxisSettings = () => {
+    setEditingAxisId(null);
+    setPendingSettings(null);
+  };
 
   const handlePlotSettingsChange = (
     axis: AxisConfigRecord,
     config: CartesianPlaneConfig
   ) => {
-    // Store the update in pending updates
-    updatePendingSettings(axis.id, config);
+    console.log("Plot settings changed:", axis.id, config);
+
+    // If this is the first change for this axis, set the editing ID
+    if (editingAxisId !== axis.id) {
+      setEditingAxisId(axis.id);
+    }
+
+    // Store the update in pending settings
+    setPendingSettings(config);
   };
 
-  const items: TabsProps["items"] = axisSettings?.map((axisConfigRecord) => ({
-    key: getAxisKey(axisConfigRecord),
-    label: axisConfigRecord.name,
-    children: (
-      <div>
-        <AxisSelector
-          dimensions={dimensions}
-          record={axisConfigRecord}
-          onSettingsChange={(settings: CartesianPlaneConfig) =>
-            handlePlotSettingsChange(axisConfigRecord, settings)
-          }
-        />
+  const items: TabsProps["items"] = axisSettings?.map((axisConfigRecord) => {
+    // Check if this is the currently editing axis
+    const isEditing = editingAxisId === axisConfigRecord.id;
 
-        {tableData.dimensions?.length >= 4 && (
-          <div className="mb-24 relative">
-            <div className="absolute top-2 right-2 z-10">
-              <button
-                onClick={() => toggleDrawer(axisConfigRecord)}
-                className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 focus:outline-none"
-                title="Magnify Plot"
+    // Determine which settings to use for the plot
+    const displaySettings =
+      isEditing && pendingSettings
+        ? pendingSettings
+        : axisConfigRecord.settings;
+
+    return {
+      key: getAxisKey(axisConfigRecord),
+      label: axisConfigRecord.name,
+      children: (
+        <div>
+          <AxisSelector
+            dimensions={dimensions}
+            record={{
+              ...axisConfigRecord,
+              settings: displaySettings, // Use the same settings for both the selector and plot
+            }}
+            onSettingsChange={(settings: CartesianPlaneConfig) =>
+              handlePlotSettingsChange(axisConfigRecord, settings)
+            }
+            noForm={true} // Don't use a form in the tab content
+            tableData={tableData} // Pass tableData to look up dimension IDs
+          />
+
+          {/* Submit/Cancel buttons when editing */}
+          {isEditing && (
+            <div className="flex justify-end gap-2 mt-4 mb-4">
+              <Button onClick={() => cancelAxisSettings()} danger>
+                Cancel
+              </Button>
+              <Button
+                type="primary"
+                onClick={() =>
+                  saveAxisSettings(axisConfigRecord.id, pendingSettings!)
+                }
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path d="M5 8a1 1 0 011-1h1V6a1 1 0 012 0v1h1a1 1 0 110 2H9v1a1 1 0 11-2 0V9H6a1 1 0 01-1-1z" />
-                  <path
-                    fillRule="evenodd"
-                    d="M2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8zm6-4a4 4 0 100 8 4 4 0 000-8z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
+                Save Changes
+              </Button>
             </div>
-            <CartesianPlot
-              data={tableData}
-              settings={axisConfigRecord.settings}
-            />
-          </div>
-        )}
-      </div>
-    ),
-  }));
+          )}
+
+          {tableData.dimensions?.length >= 4 && (
+            <div className="mb-24 relative">
+              <div className="absolute top-2 right-2 z-10">
+                <button
+                  onClick={() => toggleDrawer(axisConfigRecord)}
+                  className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 focus:outline-none"
+                  title="Magnify Plot"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path d="M5 8a1 1 0 011-1h1V6a1 1 0 012 0v1h1a1 1 0 110 2H9v1a1 1 0 11-2 0V9H6a1 1 0 01-1-1z" />
+                    <path
+                      fillRule="evenodd"
+                      d="M2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8zm6-4a4 4 0 100 8 4 4 0 000-8z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Add a "preview" badge when showing modified settings */}
+              {isEditing && (
+                <div className="absolute top-2 left-2 z-10 bg-yellow-500 text-white px-3 py-1 rounded-full">
+                  Preview
+                </div>
+              )}
+
+              <CartesianPlot data={tableData} settings={displaySettings} />
+            </div>
+          )}
+        </div>
+      ),
+    };
+  });
 
   const onEdit = async (
     _targetKey: React.MouseEvent | React.KeyboardEvent | string,
@@ -267,9 +302,10 @@ export default function PlotTabs({ tableData, toggleDrawer }: PlotTabProps) {
                       },
                     }}
                     form={addTabForm}
-                    noForm={true} // Don't render a nested form
+                    noForm={true} // Use standalone selects instead of Form.Items
+                    tableData={tableData} // Pass tableData to look up dimension IDs
                     onSettingsChange={(settings) => {
-                      console.log("Selected settings:", settings);
+                      console.log("New axis settings:", settings);
 
                       // Map the selected names back to their IDs
                       const xPositiveId = tableData.dimensions.find(

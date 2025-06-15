@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { AxisConfigRecord, CartesianPlaneConfig } from "../types";
+import { AxisConfigRecord, CartesianPlaneConfig, TableData } from "../types";
 import { Form, Select } from "antd";
 
 interface AxisSelectorProps {
@@ -9,6 +9,7 @@ interface AxisSelectorProps {
   form?: any; // Optional form instance that can be passed from parent
   formItemClassName?: string; // Optional class for styling form items
   noForm?: boolean; // When true, don't render own Form wrapper
+  tableData?: TableData; // Optional tableData to look up dimension IDs
 }
 
 export const AxisSelector: React.FC<AxisSelectorProps> = ({
@@ -18,6 +19,7 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
   form: externalForm,
   formItemClassName = "",
   noForm = false,
+  tableData,
 }) => {
   // Create a local form instance if we're not using an external one
   const [internalForm] = Form.useForm();
@@ -30,26 +32,43 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
   // Update local state when record changes from parent
   useEffect(() => {
     setLocalSettings(record.settings);
-    form.setFieldsValue({
-      yPositive: record.settings.yPositive.name,
-      xPositive: record.settings.xPositive.name,
-      yNegative: record.settings.yNegative.name,
-      xNegative: record.settings.xNegative.name,
-    });
-  }, [record.settings, form]);
+    // Only update form values if we're using a form
+    if (!noForm || externalForm) {
+      form.setFieldsValue({
+        yPositive: record.settings.yPositive.name,
+        xPositive: record.settings.xPositive.name,
+        yNegative: record.settings.yNegative.name,
+        xNegative: record.settings.xNegative.name,
+      });
+    }
+  }, [record.settings, form, noForm, externalForm]);
 
   const handleSettingChange = (
     axisType: keyof CartesianPlaneConfig,
     newName: string
   ) => {
-    // Find the dimension with matching name
-    const dimensionObj = record.settings[axisType];
+    // Find the dimension with matching name from the available dimensions
+    let dimensionId = 0;
 
-    // Create a new settings object with the updated axis
+    // If tableData is provided, use it to find the dimension ID
+    if (tableData && tableData.dimensions) {
+      const matchingDimension = tableData.dimensions.find(
+        (d) => d.name === newName
+      );
+      if (matchingDimension) {
+        dimensionId = matchingDimension.id;
+      } else {
+        console.warn(
+          `Dimension with name ${newName} not found in tableData. Using fallback.`
+        );
+      }
+    }
+
+    // Create a new settings object with the updated axis - including ID
     const updatedSettings = {
       ...localSettings,
       [axisType]: {
-        ...dimensionObj,
+        id: dimensionId,
         name: newName,
       },
     };
@@ -61,30 +80,27 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
     onSettingsChange(updatedSettings);
   };
 
-  const handleFormValuesChange = (_: any, allValues: any) => {
-    // Update settings when form values change
-    if (allValues.yPositive)
-      handleSettingChange("yPositive", allValues.yPositive);
-    if (allValues.xPositive)
-      handleSettingChange("xPositive", allValues.xPositive);
-    if (allValues.yNegative)
-      handleSettingChange("yNegative", allValues.yNegative);
-    if (allValues.xNegative)
-      handleSettingChange("xNegative", allValues.xNegative);
-  };
-
-  // Handle direct select changes when not wrapped in a Form
+  // Direct handler for select changes - always propagate to parent immediately
   const handleSelectChange = (
     axis: keyof CartesianPlaneConfig,
     value: string
   ) => {
-    // Update the form field
-    form.setFieldValue(axis, value);
-    // Call the setting change handler directly
+    // Update form field if we're using a form
+    if (!noForm && form) {
+      form.setFieldValue(axis, value);
+    }
+
+    // Call setting change handler directly
     handleSettingChange(axis, value);
   };
 
-  // The actual axis selector UI component
+  // Create select options once
+  const selectOptions = dimensions?.map((column) => ({
+    label: column,
+    value: column,
+  }));
+
+  // The axis selector UI component
   const axisSelector = (
     <div className="relative w-[300px] h-[300px] flex items-center justify-center">
       {/* Vertical line */}
@@ -95,78 +111,90 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
 
       {/* Y+ (Up) Axis */}
       <div className="absolute top-0 transform -translate-y-1/2">
-        <Form.Item name="yPositive" className={formItemClassName} noStyle>
+        {noForm || externalForm ? (
           <Select
             className="w-32 border rounded bg-white shadow-md"
             popupMatchSelectWidth={false}
-            options={dimensions?.map((column) => ({
-              label: column,
-              value: column,
-            }))}
-            onChange={
-              noForm
-                ? (value) => handleSelectChange("yPositive", value)
-                : undefined
-            }
+            options={selectOptions}
+            value={localSettings.yPositive.name}
+            onChange={(value) => handleSelectChange("yPositive", value)}
           />
-        </Form.Item>
+        ) : (
+          <Form.Item name="yPositive" className={formItemClassName} noStyle>
+            <Select
+              className="w-32 border rounded bg-white shadow-md"
+              popupMatchSelectWidth={false}
+              options={selectOptions}
+              onChange={(value) => handleSelectChange("yPositive", value)}
+            />
+          </Form.Item>
+        )}
       </div>
 
       {/* X+ (Right) Axis */}
       <div className="absolute right-0 transform translate-x-1/2">
-        <Form.Item name="xPositive" className={formItemClassName} noStyle>
+        {noForm || externalForm ? (
           <Select
             className="w-32 border rounded bg-white shadow-md"
             popupMatchSelectWidth={false}
-            options={dimensions?.map((column) => ({
-              label: column,
-              value: column,
-            }))}
-            onChange={
-              noForm
-                ? (value) => handleSelectChange("xPositive", value)
-                : undefined
-            }
+            options={selectOptions}
+            value={localSettings.xPositive.name}
+            onChange={(value) => handleSelectChange("xPositive", value)}
           />
-        </Form.Item>
+        ) : (
+          <Form.Item name="xPositive" className={formItemClassName} noStyle>
+            <Select
+              className="w-32 border rounded bg-white shadow-md"
+              popupMatchSelectWidth={false}
+              options={selectOptions}
+              onChange={(value) => handleSelectChange("xPositive", value)}
+            />
+          </Form.Item>
+        )}
       </div>
 
       {/* Y- (Down) Axis */}
       <div className="absolute bottom-0 transform translate-y-1/2">
-        <Form.Item name="yNegative" className={formItemClassName} noStyle>
+        {noForm || externalForm ? (
           <Select
             className="w-32 border rounded bg-white shadow-md"
             popupMatchSelectWidth={false}
-            options={dimensions?.map((column) => ({
-              label: column,
-              value: column,
-            }))}
-            onChange={
-              noForm
-                ? (value) => handleSelectChange("yNegative", value)
-                : undefined
-            }
+            options={selectOptions}
+            value={localSettings.yNegative.name}
+            onChange={(value) => handleSelectChange("yNegative", value)}
           />
-        </Form.Item>
+        ) : (
+          <Form.Item name="yNegative" className={formItemClassName} noStyle>
+            <Select
+              className="w-32 border rounded bg-white shadow-md"
+              popupMatchSelectWidth={false}
+              options={selectOptions}
+              onChange={(value) => handleSelectChange("yNegative", value)}
+            />
+          </Form.Item>
+        )}
       </div>
 
       {/* X- (Left) Axis */}
       <div className="absolute left-0 transform -translate-x-1/2">
-        <Form.Item name="xNegative" className={formItemClassName} noStyle>
+        {noForm || externalForm ? (
           <Select
             className="w-32 border rounded bg-white shadow-md"
             popupMatchSelectWidth={false}
-            options={dimensions?.map((column) => ({
-              label: column,
-              value: column,
-            }))}
-            onChange={
-              noForm
-                ? (value) => handleSelectChange("xNegative", value)
-                : undefined
-            }
+            options={selectOptions}
+            value={localSettings.xNegative.name}
+            onChange={(value) => handleSelectChange("xNegative", value)}
           />
-        </Form.Item>
+        ) : (
+          <Form.Item name="xNegative" className={formItemClassName} noStyle>
+            <Select
+              className="w-32 border rounded bg-white shadow-md"
+              popupMatchSelectWidth={false}
+              options={selectOptions}
+              onChange={(value) => handleSelectChange("xNegative", value)}
+            />
+          </Form.Item>
+        )}
       </div>
 
       {/* Center point */}
@@ -174,27 +202,36 @@ export const AxisSelector: React.FC<AxisSelectorProps> = ({
     </div>
   );
 
-  // When noForm is true, just return the axis selector without wrapping it in a form
-  if (noForm) {
-    return <div className="m-6">{axisSelector}</div>;
-  }
-
-  // Otherwise, wrap it in a form
+  // Return the component
   return (
     <div className="m-6">
-      <Form
-        form={form}
-        initialValues={{
-          yPositive: localSettings?.yPositive.name,
-          xPositive: localSettings?.xPositive.name,
-          yNegative: localSettings?.yNegative.name,
-          xNegative: localSettings?.xNegative.name,
-        }}
-        onValuesChange={handleFormValuesChange}
-        layout="vertical"
-      >
-        {axisSelector}
-      </Form>
+      {!noForm && !externalForm ? (
+        <Form
+          form={form}
+          initialValues={{
+            yPositive: localSettings?.yPositive.name,
+            xPositive: localSettings?.xPositive.name,
+            yNegative: localSettings?.yNegative.name,
+            xNegative: localSettings?.xNegative.name,
+          }}
+          onValuesChange={(_, allValues) => {
+            // Update settings when form values change
+            if (allValues.yPositive)
+              handleSettingChange("yPositive", allValues.yPositive);
+            if (allValues.xPositive)
+              handleSettingChange("xPositive", allValues.xPositive);
+            if (allValues.yNegative)
+              handleSettingChange("yNegative", allValues.yNegative);
+            if (allValues.xNegative)
+              handleSettingChange("xNegative", allValues.xNegative);
+          }}
+          layout="vertical"
+        >
+          {axisSelector}
+        </Form>
+      ) : (
+        axisSelector
+      )}
     </div>
   );
 };
